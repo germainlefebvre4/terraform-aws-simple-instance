@@ -1,7 +1,3 @@
-provider "aws" {
-  region  = "eu-west-1"
-  profile = "AWS_INEAT_POC"
-}
 
 resource "aws_key_pair" "ssh" {
   key_name   = "germain-ineat-rsa-key-20181112"
@@ -12,11 +8,6 @@ data "aws_ami" "ami" {
   most_recent = true
 
   owners = ["aws-marketplace"]
-
-  filter {
-    name   = "owner-alias"
-    values = ["aws-marketplace"]
-  }
 
   filter {
     name   = "name"
@@ -31,7 +22,7 @@ data "aws_ami" "ami" {
 
 data "template_file" "lc_user_data" {
   template = "${file("${path.module}/templates/lc_instance.sh")}"
-  vars {
+  vars = {
     name = "launchConfig"
     ssh_key = "to to to"
     ssh_keys = "${join(" ", var.ssh_keys)}"
@@ -39,27 +30,29 @@ data "template_file" "lc_user_data" {
 }
 
 resource "aws_instance" "instance" {
+  depends_on = [aws_key_pair.ssh, aws_security_group.ssh]
+
   count = 1
 
-  ami           = "${data.aws_ami.ami.id}"
-  instance_type = "t3.small"
+  ami           = data.aws_ami.ami.id
+  instance_type = "t3.medium"
 
-  key_name = "${aws_key_pair.ssh.key_name}"
+  key_name = aws_key_pair.ssh.key_name
 
-  user_data = "${data.template_file.lc_user_data.rendered}"
+  user_data = data.template_file.lc_user_data.rendered
 
-  security_groups = ["default", "${aws_security_group.ssh.name}"]
+  security_groups = ["default", aws_security_group.ssh.name]
   
   root_block_device {
-    volume_size = 8
+    volume_size = 40
     delete_on_termination = true
   }
 
-  tags {
-    Name = "Simple-instance-${count.index + 1}"
-    Author = "Terraform"
-    Project = "Germain"
-    Environment = "Poc"
+  tags = {
+    Name = "simple-instance-${count.index + 1}"
+    Author = "terraform"
+    Project = "germain"
+    Environment = "poc"
   }
 }
 
@@ -67,13 +60,13 @@ resource "aws_security_group" "ssh" {
   name        = "simple-instance-ssh"
   description = "SSH Access"
 
-  tags {
+  tags = {
       Name = "simple-instance-ssh"
   }
 }
 
 resource "aws_security_group_rule" "allow_ssh" {
-  security_group_id = "${aws_security_group.ssh.id}"
+  security_group_id = aws_security_group.ssh.id
 
   type                     = "ingress"
   from_port                = 22
@@ -84,7 +77,7 @@ resource "aws_security_group_rule" "allow_ssh" {
 
 
 resource "aws_security_group_rule" "allow_http" {
-  security_group_id = "${aws_security_group.ssh.id}"
+  security_group_id = aws_security_group.ssh.id
 
   type                     = "ingress"
   from_port                = 80
@@ -94,10 +87,10 @@ resource "aws_security_group_rule" "allow_http" {
 }
 
 output "dns" {
-	value = "${aws_instance.instance.*.public_dns}"
+    value = aws_instance.instance.*.public_dns
 }
 output "ami" {
-	value = "${data.aws_ami.ami.name}"
+    value = data.aws_ami.ami.name
 }
 output "ssh" {
     value = "${join(" ", var.ssh_keys)}"
