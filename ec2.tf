@@ -11,7 +11,7 @@ data "aws_ami" "ami" {
 
   filter {
     name   = "name"
-    values = ["CentOS*7*x86_64*"]
+    values = ["CentOS*Linux*7*x86_64*"]
   }
 
   filter {
